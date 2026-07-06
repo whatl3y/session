@@ -74,8 +74,6 @@ defineMethod(Session.prototype, 'save', function save(fn) {
 
   return callbackOrPromise(this, fn, function (done) {
     store.set(self.id, self, done);
-  }, function () {
-    return self;
   });
 });
 
@@ -103,8 +101,6 @@ defineMethod(Session.prototype, 'reload', function reload(fn) {
       store.createSession(req, sess);
       done();
     });
-  }, function () {
-    return req.session;
   });
 });
 
@@ -141,8 +137,6 @@ defineMethod(Session.prototype, 'regenerate', function regenerate(fn) {
 
   return callbackOrPromise(this, fn, function (done) {
     store.regenerate(req, done);
-  }, function () {
-    return req.session;
   });
 });
 
@@ -166,12 +160,12 @@ function defineMethod(obj, name, fn) {
 /**
  * Run `executor(done)` in callback or promise style: with a callback,
  * return `session` for chaining; without one, return a `Promise`
- * resolving to `value()`.
+ * resolving to the request's current session.
  *
  * @private
  */
 
-function callbackOrPromise(session, callback, executor, value) {
+function callbackOrPromise(session, callback, executor) {
   if (typeof callback === 'function') {
     executor(callback)
     return session
@@ -180,7 +174,7 @@ function callbackOrPromise(session, callback, executor, value) {
   return new Promise(function (resolve, reject) {
     executor(function (err) {
       if (err) return reject(err)
-      resolve(value ? value() : undefined)
+      resolve(session.req.session)
     })
   })
 }
