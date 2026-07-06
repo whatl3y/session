@@ -388,14 +388,7 @@ function session(options) {
           return _reload.call(this, rewrapmethods(this, callback))
         }
 
-        var rewrap = rewrapmethods(this, function () {})
-        return _reload.call(this).then(function (sess) {
-          rewrap()
-          return sess
-        }, function (err) {
-          rewrap()
-          throw err
-        })
+        return _reload.call(this).finally(rewrapmethods(this, function () {}))
       }
 
       function save() {
