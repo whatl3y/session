@@ -372,14 +372,17 @@ To regenerate the session simply invoke the method. Once complete,
 a new SID and `Session` instance will be initialized at `req.session`
 and the `callback` will be invoked.
 
+When called without a callback, a `Promise` is returned instead, which
+resolves to the newly created session.
+
 ```js
 req.session.regenerate(function(err) {
   // will have a new session here
 })
 
 // or promises
-req.session.regenerate().then(function() {
-  // will have a new session here
+req.session.regenerate().then(function(session) {
+  // session is the new req.session
 }).catch(function(err) {
   // a problem...
 })
@@ -387,8 +390,8 @@ req.session.regenerate().then(function() {
 // or async/await
 (async function() {
   try {
+    // resolves to the new req.session
     await req.session.regenerate()
-    // will have a new session here
   } catch(err) {
     // a problem...
   }
@@ -399,6 +402,9 @@ req.session.regenerate().then(function() {
 
 Destroys the session and will unset the `req.session` property.
 Once complete, the `callback` will be invoked.
+
+When called without a callback, a `Promise` is returned instead, which
+resolves to `undefined` once the session is destroyed.
 
 ```js
 req.session.destroy(function(err) {
@@ -428,14 +434,18 @@ req.session.destroy().then(function() {
 Reloads the session data from the store and re-populates the
 `req.session` object. Once complete, the `callback` will be invoked.
 
+When called without a callback, a `Promise` is returned instead, which
+resolves to the reloaded session: a new `Session` object at `req.session`
+representing the same session.
+
 ```js
 req.session.reload(function(err) {
   // session updated
 })
 
 // or promises
-req.session.reload().then(function() {
-  // session updated
+req.session.reload().then(function(session) {
+  // session is the reloaded req.session
 }).catch(function(err) {
   // a problem...
 })
@@ -443,8 +453,8 @@ req.session.reload().then(function() {
 // or async/await
 (async function() {
   try {
+    // resolves to the reloaded req.session
     await req.session.reload()
-    // session updated
   } catch(err) {
     // a problem...
   }
@@ -465,14 +475,18 @@ does not need to be called.
 There are some cases where it is useful to call this method, for example,
 redirects, long-lived requests or in WebSockets.
 
+When called without a callback, a `Promise` is returned instead, which
+resolves to the session the method was called on — even if `req.session`
+has since been replaced (for example by `regenerate()` or `reload()`).
+
 ```js
 req.session.save(function(err) {
   // session saved
 })
 
 // or promises
-req.session.save().then(function() {
-  // session saved
+req.session.save().then(function(session) {
+  // session saved; session is the one save() was called on
 }).catch(function(err) {
   // a problem...
 })
@@ -480,8 +494,8 @@ req.session.save().then(function() {
 // or async/await
 (async function() {
   try {
+    // resolves to the session save() was called on
     await req.session.save()
-    // session saved
   } catch(err) {
     // a problem...
   }
