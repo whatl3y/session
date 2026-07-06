@@ -1672,7 +1672,7 @@ describe('session()', function(){
         })
       })
 
-      it('should error is session missing', function (done) {
+      it('should error if session missing', function (done) {
         var store = new session.MemoryStore()
         var server = createServer({ store: store }, function (req, res) {
           if (req.url === '/') {
@@ -1743,6 +1743,38 @@ describe('session()', function(){
               .expect(200, 'ok', done)
           })
       })
+
+      it('session with promises should error if session missing', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          if (req.url === '/') {
+            req.session.active = true
+            res.end('session created')
+            return
+          }
+
+          store.clear(function (err) {
+            if (err) return done(err)
+            req.session.reload().then(function() {
+              res.statusCode = 200
+              res.end('')
+            }).catch(function(err) {
+              res.statusCode = 500
+              res.end(err.message)
+            })
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(200, 'session created', function (err, res) {
+          if (err) return done(err)
+          request(server)
+          .get('/foo')
+          .set('Cookie', cookie(res))
+          .expect(500, 'failed to load session', done)
+        })
+      })
     })
 
     describe('.save()', function () {
@@ -1756,6 +1788,32 @@ describe('session()', function(){
               if (err) return res.end(err.message)
               res.end(sess ? 'stored' : 'empty')
             })
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(200, 'stored', done)
+      })
+
+      it('session with promises should save session to store', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          req.session.hit = true
+          req.session.save().then(function() {
+            // TODO: Make MemoryStore methods return promises
+            // so we don't have to wrap store.get around a promise
+            // here?
+            return new Promise(function(resolve, reject) {
+              store.get(req.session.id, function (err, sess) {
+                if (err) return reject(err)
+                resolve(sess ? 'stored' : 'empty')
+              })
+            })
+          }).then(function(message) {
+            res.end(message)
+          }).catch(function(err) {
+            res.end(err.message)
           })
         })
 
@@ -1787,6 +1845,30 @@ describe('session()', function(){
         })
       })
 
+      it('session with promises should prevent end-of-request save', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          req.session.hit = true
+          req.session.save().then(function() {
+            res.end('saved')
+          }).catch(function(err) {
+            res.end(err.message)
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(shouldSetSessionInStore(store))
+        .expect(200, 'saved', function (err, res) {
+          if (err) return done(err)
+          request(server)
+          .get('/')
+          .set('Cookie', cookie(res))
+          .expect(shouldSetSessionInStore(store))
+          .expect(200, 'saved', done)
+        })
+      })
+
       it('should prevent end-of-request save on reloaded session', function (done) {
         var store = new session.MemoryStore()
         var server = createServer({ store: store }, function (req, res) {
@@ -1796,6 +1878,36 @@ describe('session()', function(){
               if (err) return res.end(err.message)
               res.end('saved')
             })
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(shouldSetSessionInStore(store))
+        .expect(200, 'saved', function (err, res) {
+          if (err) return done(err)
+          request(server)
+          .get('/')
+          .set('Cookie', cookie(res))
+          .expect(shouldSetSessionInStore(store))
+          .expect(200, 'saved', done)
+        })
+      })
+
+      it('session with promises should prevent end-of-request save on reloaded session', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          req.session.hit = true
+          // NOTE: reload() rejects with a `failed to load session` error
+          // on the first request, since the session is not in the store
+          // yet. The previous test using callbacks ignores that error the
+          // same way, so ignore it here and always save for parity.
+          req.session.reload().catch(function () {}).then(function() {
+            return req.session.save()
+          }).then(function() {
+            res.end('saved')
+          }).catch(function(err) {
+            res.end(err.message)
           })
         })
 
