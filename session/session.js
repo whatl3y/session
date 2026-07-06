@@ -74,7 +74,7 @@ defineMethod(Session.prototype, 'save', function save(fn) {
 
   return callbackOrPromise(this, fn, function (done) {
     store.set(self.id, self, done);
-  });
+  }, self);
 });
 
 /**
@@ -160,12 +160,12 @@ function defineMethod(obj, name, fn) {
 /**
  * Run `executor(done)` in callback or promise style: with a callback,
  * return `session` for chaining; without one, return a `Promise`
- * resolving to the request's current session.
+ * resolving to `value`, or the request's current session by default.
  *
  * @private
  */
 
-function callbackOrPromise(session, callback, executor) {
+function callbackOrPromise(session, callback, executor, value) {
   if (typeof callback === 'function') {
     executor(callback)
     return session
@@ -174,7 +174,7 @@ function callbackOrPromise(session, callback, executor) {
   return new Promise(function (resolve, reject) {
     executor(function (err) {
       if (err) return reject(err)
-      resolve(session.req.session)
+      resolve(value !== undefined ? value : session.req.session)
     })
   })
 }

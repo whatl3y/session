@@ -1604,6 +1604,22 @@ describe('session()', function(){
         .expect(shouldNotHaveHeader('Set-Cookie'))
         .expect(200, 'undefined', done)
       })
+
+      it('session with promises should resolve to undefined', function (done) {
+        var server = createServer(null, function (req, res) {
+          req.session.destroy().then(function (value) {
+            res.end(String(value === undefined && req.session === undefined))
+          }).catch(function () {
+            res.statusCode = 500
+            res.end()
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(shouldNotHaveHeader('Set-Cookie'))
+        .expect(200, 'true', done)
+      })
     })
 
     describe('.regenerate()', function(){
@@ -1628,6 +1644,23 @@ describe('session()', function(){
           .expect(shouldSetCookieToDifferentSessionId(sid(res)))
           .expect(200, 'false', done)
         });
+      })
+
+      it('session with promises should resolve to the new session', function (done) {
+        var server = createServer(null, function (req, res) {
+          var id = req.session.id
+          req.session.regenerate().then(function (sess) {
+            res.end(String(sess === req.session && sess.id !== id))
+          }).catch(function () {
+            res.statusCode = 500
+            res.end()
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(shouldSetCookie('connect.sid'))
+        .expect(200, 'true', done)
       })
     })
 
@@ -1775,6 +1808,34 @@ describe('session()', function(){
           .expect(500, 'failed to load session', done)
         })
       })
+
+      it('session with promises should resolve to the reloaded session', function (done) {
+        var server = createServer(null, function (req, res) {
+          if (req.url === '/') {
+            req.session.active = true
+            res.end('session created')
+            return
+          }
+
+          var prev = req.session
+          req.session.reload().then(function (sess) {
+            res.end(String(sess === req.session && sess !== prev && sess.id === prev.id))
+          }).catch(function (err) {
+            res.statusCode = 500
+            res.end(err.message)
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(200, 'session created', function (err, res) {
+          if (err) return done(err)
+          request(server)
+          .get('/foo')
+          .set('Cookie', cookie(res))
+          .expect(200, 'true', done)
+        })
+      })
     })
 
     describe('.save()', function () {
@@ -1820,6 +1881,30 @@ describe('session()', function(){
         request(server)
         .get('/')
         .expect(200, 'stored', done)
+      })
+
+      it('session with promises should resolve to the saved session', function (done) {
+        var server = createServer(null, function (req, res) {
+          var sess = req.session
+          sess.hit = true
+          // save first so reload can replace req.session with a new
+          // object, then save the old reference: the promise must
+          // resolve to that reference, not the current req.session
+          sess.save().then(function () {
+            return sess.reload()
+          }).then(function () {
+            return sess.save()
+          }).then(function (value) {
+            res.end(String(value === sess && value !== req.session))
+          }).catch(function (err) {
+            res.statusCode = 500
+            res.end(err.message)
+          })
+        })
+
+        request(server)
+        .get('/')
+        .expect(200, 'true', done)
       })
 
       it('should prevent end-of-request save', function (done) {
