@@ -1620,6 +1620,26 @@ describe('session()', function(){
         .expect(shouldNotHaveHeader('Set-Cookie'))
         .expect(200, 'true', done)
       })
+
+      it('session with promises should reject on destroy error', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          req.session.destroy().then(function () {
+            res.end('destroyed')
+          }).catch(function (err) {
+            res.statusCode = 500
+            res.end(err.message)
+          })
+        })
+
+        store.destroy = function destroy(sid, callback) {
+          callback(new Error('boom!'))
+        }
+
+        request(server)
+        .get('/')
+        .expect(500, 'boom!', done)
+      })
     })
 
     describe('.regenerate()', function(){
@@ -1661,6 +1681,26 @@ describe('session()', function(){
         .get('/')
         .expect(shouldSetCookie('connect.sid'))
         .expect(200, 'true', done)
+      })
+
+      it('session with promises should reject on regenerate error', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store }, function (req, res) {
+          req.session.regenerate().then(function () {
+            res.end('regenerated')
+          }).catch(function (err) {
+            res.statusCode = 500
+            res.end(err.message)
+          })
+        })
+
+        store.destroy = function destroy(sid, callback) {
+          callback(new Error('boom!'))
+        }
+
+        request(server)
+        .get('/')
+        .expect(500, 'boom!', done)
       })
     })
 
@@ -1905,6 +1945,27 @@ describe('session()', function(){
         request(server)
         .get('/')
         .expect(200, 'true', done)
+      })
+
+      it('session with promises should reject on save error', function (done) {
+        var store = new session.MemoryStore()
+        var server = createServer({ store: store, saveUninitialized: false }, function (req, res) {
+          req.session.hit = true
+          req.session.save().then(function () {
+            res.end('saved')
+          }).catch(function (err) {
+            res.statusCode = 500
+            res.end(err.message)
+          })
+        })
+
+        store.set = function set(sid, sess, callback) {
+          callback(new Error('boom!'))
+        }
+
+        request(server)
+        .get('/')
+        .expect(500, 'boom!', done)
       })
 
       it('should prevent end-of-request save', function (done) {
